@@ -16,3 +16,4 @@ timm
 mediapipe
 deepface
 tf_keras
+clip
