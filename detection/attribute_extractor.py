@@ -1,7 +1,6 @@
 # detection/attribute_extractor.py
-# from deepface import DeepFace
+from deepface import DeepFace
 import cv2
-import os
 
 class AttributeExtractor:
     """Extract facial attributes using DeepFace."""
@@ -18,29 +17,36 @@ class AttributeExtractor:
             face_crop: Cropped face image (BGR)
             
         Returns:
-            Dictionary with age, gender, emotion
+            Dictionary with age, gender, emotion (and optionally race)
         """
         try:
-            # result = DeepFace.analyze(
-            #     face_crop,
-            #     actions=['age', 'gender'],
-            #     enforce_detection=False,
-            #     silent=True
-            # )
-            
-            # return {
-            #     "age": int(result[0]['age']),
-            #     "gender": result[0]['dominant_gender'],
-            #     "emotions": None
-            # }
+            result = DeepFace.analyze(
+                face_crop,
+                actions=['age', 'gender', 'emotion', 'race'], 
+                enforce_detection=False,
+                silent=True
+            )
+
+            # DeepFace returns a list with one result per detected face
+            info = result[0]
+
             return {
-                "age": 21,
-                "gender": "Male",
-                "emotions": None
+                "age": int(info.get('age', 0)),
+                "gender": info.get('dominant_gender', 'unknown'),
+                "dominant_emotion": info.get('dominant_emotion', 'neutral'),
+                "emotions": info.get('emotion', {}),  # full emotion probability dict
+                # Uncomment below if you add 'race' in actions
+                "dominant_race": info.get('dominant_race', 'unknown'),
+                "races": info.get('race', {})
             }
         except Exception as e:
-            print(f"Attribute extraction error: {e}")
-            return {"age": None, "gender": None, "emotion": None}
+            print(f"⚠️ Attribute extraction error: {e}")
+            return {
+                "age": None,
+                "gender": None,
+                "dominant_emotion": None,
+                "emotions": {}
+            }
 
 
 if __name__ == "__main__":

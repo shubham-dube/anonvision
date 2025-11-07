@@ -19,3 +19,5 @@ tf_keras
 pyngrok
 python-multipart
 opencv-python-headless
+mmdet
+mmcv
