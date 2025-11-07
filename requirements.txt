@@ -16,4 +16,6 @@ timm
 mediapipe
 deepface
 tf_keras
-clip
+pyngrok
+python-multipart
+opencv-python-headless
