@@ -27,7 +27,7 @@ class SceneClassifier:
 
         # Load model architecture
         self.model = models.resnet50(num_classes=365)
-        checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+        checkpoint = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)
         state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
         self.model.load_state_dict(state_dict)
         self.model.eval()
