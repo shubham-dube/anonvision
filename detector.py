@@ -144,7 +144,6 @@ class IntegratedDetector:
         
         detections = []
         
-        print("before each persons")
         # Step 3: Process each detected person
         for idx, person_bbox in enumerate(people_bboxes):
             person_data = {
@@ -152,17 +151,13 @@ class IntegratedDetector:
                 "bbox_person": list(person_bbox),
                 "bbox_face": None,
                 "attributes": None,
-                "cloth": None,
-                "dress_color": None,
-                "pose": "unknown"
+                "dress_color": None
             }
             
             x, y, w, h = person_bbox
-            print(f"before face {idx}")
             
             # 3a. Face detection within person bbox
             face_bbox = self.detect_face_in_person(frame, person_bbox)
-            print(f"after face detection {idx}")
             
             if face_bbox:
                 person_data["bbox_face"] = face_bbox
@@ -177,30 +172,16 @@ class IntegratedDetector:
                         person_data["attributes"] = attributes
                 except Exception as e:
                     print(f"Attribute extraction failed for person {idx+1}: {e}")
-
-
-            print(f"before clothes {idx}")
             
             # 3c. Clothing analysis
             try:
                 clothing_info = analyze_clothing(frame, [x, y, x+w, y+h])
-                person_data["cloth"] = clothing_info.get("clothing_type")
                 person_data["dress_color"] = clothing_info.get("color")
             except Exception as e:
                 print(f"Clothing analysis failed for person {idx+1}: {e}")
             
-            print(f"after clothes {idx}")
-
-            # 3d. Pose estimation
-            try:
-                keypoints = self.pose_estimator.estimate(frame, person_bbox)
-                pose_label = self.classify_pose(keypoints, person_bbox)
-                person_data["pose"] = pose_label
-            except Exception as e:
-                print(f"Pose estimation failed for person {idx+1}: {e}")
             
             detections.append(person_data)
-            print(f"after pose {idx}")
         
         # Compile final result
         result = {

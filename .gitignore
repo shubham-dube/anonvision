@@ -6,3 +6,4 @@ models/
 venv.zip
 sample_images/
 .env
+yolov8n-pose.pt

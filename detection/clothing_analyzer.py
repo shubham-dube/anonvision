@@ -1,145 +1,136 @@
 # detection/clothing_analyzer.py
+# Advanced clothing color analyzer (no type classification).
+# Returns detailed color name from clothing region.
+# Requires: pip install opencv-python-headless scikit-learn numpy webcolors
+
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
-import torch
-from PIL import Image
-from torchvision import transforms
-import clip
+import webcolors
 
-# Initialize CLIP model globally for efficiency
-device = "cuda" if torch.cuda.is_available() else "cpu"
-clip_model, preprocess = clip.load("ViT-B/32", device=device)
+# -------------------------------------------------------------------
+# Build color name lookup dynamically (compatible with all versions)
+# -------------------------------------------------------------------
 
-CLOTHING_LABELS = [
-    "shirt", "t-shirt", "jacket", "hoodie", "coat", "sweater",
-    "dress", "suit", "uniform", "kurta", "saree", "traditional wear"
-]
+def _get_color_name_map():
+    """Return hex→name dictionary safely across webcolors versions."""
+    if hasattr(webcolors, "CSS3_NAMES_TO_HEX"):
+        names_to_hex = webcolors.CSS3_NAMES_TO_HEX
+        return {v: k for k, v in names_to_hex.items()}
+    elif hasattr(webcolors, "HTML4_NAMES_TO_HEX"):
+        names_to_hex = webcolors.HTML4_NAMES_TO_HEX
+        return {v: k for k, v in names_to_hex.items()}
+    else:
+        # fallback minimal palette
+        return {
+            "#000000": "black",
+            "#ffffff": "white",
+            "#ff0000": "red",
+            "#00ff00": "lime",
+            "#0000ff": "blue",
+            "#ffff00": "yellow",
+            "#ffa500": "orange",
+            "#800080": "purple",
+            "#808080": "gray",
+            "#00ffff": "cyan",
+            "#ffc0cb": "pink"
+        }
 
-COLOR_MAP = {
-    "red": (255, 0, 0),
-    "blue": (0, 0, 255),
-    "green": (0, 255, 0),
-    "yellow": (255, 255, 0),
-    "black": (0, 0, 0),
-    "white": (255, 255, 255),
-    "gray": (128, 128, 128),
-    "orange": (255, 165, 0),
-    "brown": (139, 69, 19),
-    "pink": (255, 192, 203),
-    "purple": (128, 0, 128),
-    "cyan": (0, 255, 255),
-}
+HEX_TO_NAMES = _get_color_name_map()
 
 
-def rgb_to_color_name(rgb):
-    """Convert RGB to nearest color name."""
-    def color_distance(c1, c2):
-        return np.sqrt(sum((a - b) ** 2 for a, b in zip(c1, c2)))
-    
-    min_dist, name = float("inf"), "unknown"
-    for cname, cval in COLOR_MAP.items():
-        dist = color_distance(rgb, cval)
+# -------------------------------------------------------------------
+# Helper functions
+# -------------------------------------------------------------------
+
+def closest_color_name(requested_rgb):
+    """Find the closest named color from CSS3/HTML color dictionary."""
+    min_dist, closest_name = float("inf"), None
+    for hex_code, name in HEX_TO_NAMES.items():
+        r_c, g_c, b_c = webcolors.hex_to_rgb(hex_code)
+        dist = (r_c - requested_rgb[0]) ** 2 + (g_c - requested_rgb[1]) ** 2 + (b_c - requested_rgb[2]) ** 2
         if dist < min_dist:
-            min_dist, name = dist, cname
-    
-    return name
+            min_dist, closest_name = dist, name
+    return closest_name or "unknown"
 
 
-def get_dominant_color(image, k=3):
+def refine_color_name(name):
+    """Make color names more readable and consistent."""
+    name = name.lower().replace("-", " ")
+    name = name.replace("grey", "gray")
+    return name.strip()
+
+
+def get_dominant_colors(image_bgr, top_k=3):
     """
-    Extract dominant color from clothing region.
-    
-    Args:
-        image: BGR image
-        k: Number of clusters for K-means
-        
-    Returns:
-        Color name string
-    """
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    pixels = image_rgb.reshape(-1, 3)
-    
-    # Filter out very dark (shadows) and very bright (highlights) pixels
-    brightness = np.mean(pixels, axis=1)
-    mask = (brightness > 20) & (brightness < 235)
-    filtered_pixels = pixels[mask]
-    
-    if len(filtered_pixels) < 10:
-        filtered_pixels = pixels
-    
-    kmeans = KMeans(n_clusters=min(k, len(filtered_pixels)), n_init=10, random_state=42)
-    kmeans.fit(filtered_pixels)
-    
-    # Get the most common cluster
-    labels, counts = np.unique(kmeans.labels_, return_counts=True)
-    dominant_cluster = labels[np.argmax(counts)]
-    dominant_rgb = kmeans.cluster_centers_[dominant_cluster].astype(int)
-    
-    return rgb_to_color_name(tuple(dominant_rgb))
-
-
-def detect_clothing_type(image_bgr):
-    """
-    Classify clothing type using CLIP.
-    
-    Args:
-        image_bgr: BGR image of clothing region
-        
-    Returns:
-        Clothing type string
+    Extract top K dominant colors from a clothing crop.
+    Returns a list of RGB tuples.
     """
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-    pil_img = Image.fromarray(image_rgb)
-    image_input = preprocess(pil_img).unsqueeze(0).to(device)
-    
-    with torch.no_grad():
-        image_features = clip_model.encode_image(image_input)
-        text_inputs = clip.tokenize(CLOTHING_LABELS).to(device)
-        text_features = clip_model.encode_text(text_inputs)
-        
-        similarities = (image_features @ text_features.T).squeeze(0)
-        best_idx = similarities.argmax().item()
-    
-    return CLOTHING_LABELS[best_idx]
+    pixels = image_rgb.reshape(-1, 3)
 
+    # Remove shadows and highlights
+    brightness = np.mean(pixels, axis=1)
+    valid = (brightness > 25) & (brightness < 235)
+    pixels = pixels[valid]
+
+    if len(pixels) < 30:
+        pixels = image_rgb.reshape(-1, 3)
+
+    # Cluster colors
+    k = min(top_k, max(1, len(pixels) // 500))
+    kmeans = KMeans(n_clusters=k, n_init=5, random_state=42)
+    kmeans.fit(pixels)
+
+    centers = kmeans.cluster_centers_.astype(int)
+    labels, counts = np.unique(kmeans.labels_, return_counts=True)
+    order = np.argsort(-counts)
+    return [tuple(centers[i]) for i in order[:top_k]]
+
+
+# -------------------------------------------------------------------
+# Main function
+# -------------------------------------------------------------------
 
 def analyze_clothing(frame, person_bbox):
     """
-    Analyze clothing color and type.
-    
-    Args:
-        frame: Full frame (BGR)
-        person_bbox: [x1, y1, x2, y2] bounding box
-        
+    Analyze clothing color.
     Returns:
-        Dictionary with color and clothing_type
+        {
+          "color": "light blue with gray tone",
+          "clothing_type": None
+        }
     """
     x1, y1, x2, y2 = map(int, person_bbox)
-    
-    # Ensure valid crop
     x1, y1 = max(0, x1), max(0, y1)
-    x2 = min(frame.shape[1], x2)
-    y2 = min(frame.shape[0], y2)
-    
-    person_crop = frame[y1:y2, x1:x2]
-    
-    if person_crop.size == 0:
-        return {"color": "unknown", "clothing_type": "unknown"}
-    
-    h, w = person_crop.shape[:2]
-    
-    # Focus on torso region (upper-middle body)
-    torso_crop = person_crop[int(h*0.15):int(h*0.65), int(w*0.15):int(w*0.85)]
-    
+    x2, y2 = min(frame.shape[1], x2), min(frame.shape[0], y2)
+    crop = frame[y1:y2, x1:x2]
+
+    if crop.size == 0:
+        return {"color": "unknown", "clothing_type": None}
+
+    h, w = crop.shape[:2]
+    torso_crop = crop[int(h * 0.15):int(h * 0.65), int(w * 0.15):int(w * 0.85)]
     if torso_crop.size == 0:
-        torso_crop = person_crop
-    
+        torso_crop = crop
+
     try:
-        color = get_dominant_color(torso_crop)
-        cloth_type = detect_clothing_type(torso_crop)
-        
-        return {"color": color, "clothing_type": cloth_type}
+        top_colors = get_dominant_colors(torso_crop, top_k=3)
+        color_names = [refine_color_name(closest_color_name(rgb)) for rgb in top_colors]
+
+        # Create descriptive name (main + secondary tones)
+        if len(color_names) == 1:
+            final_color = color_names[0]
+        elif len(color_names) >= 2:
+            if color_names[1].split()[0] not in color_names[0]:
+                final_color = f"{color_names[0]} with {color_names[1]} tone"
+            else:
+                final_color = color_names[0]
+        else:
+            final_color = "unknown"
+
+        return {"color": final_color, "clothing_type": None}
+
     except Exception as e:
-        print(f"Clothing analysis error: {e}")
-        return {"color": "unknown", "clothing_type": "unknown"}
+        print(f"[ClothingAnalyzer] error: {e}")
+        return {"color": "unknown", "clothing_type": None}
