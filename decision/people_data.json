@@ -1,0 +1,41 @@
+{
+  "context": "teacher teaching students in a classroom",
+  "persons": [
+    {
+      "id": 1,
+      "bbox_person": [0, 0, 100, 200],
+      "bbox_face": [10, 20, 60, 80],
+      "attributes": { "role": "teacher" },
+      "cloth": "shirt",
+      "dress_color": "blue",
+      "pose": "standing"
+    },
+    {
+      "id": 2,
+      "bbox_person": [120, 0, 220, 200],
+      "bbox_face": [130, 25, 180, 75],
+      "attributes": { "role": "student" },
+      "cloth": "hoodie",
+      "dress_color": "red",
+      "pose": "sitting"
+    },
+    {
+      "id": 3,
+      "bbox_person": [240, 0, 340, 200],
+      "bbox_face": null,
+      "attributes": { "role": "student" },
+      "cloth": "jacket",
+      "dress_color": "green",
+      "pose": "sitting"
+    },
+    {
+      "id": 4,
+      "bbox_person": [360, 0, 460, 200],
+      "bbox_face": [370, 30, 420, 80],
+      "attributes": { "role": "staff" },
+      "cloth": "t-shirt",
+      "dress_color": "black",
+      "pose": "walking"
+    }
+  ]
+}
