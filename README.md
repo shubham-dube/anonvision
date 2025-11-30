@@ -1,67 +1,72 @@
 # AnonVision: Real-Time Context-Aware Video Anonymization System
 
-Complete production-ready system for intelligent, selective video anonymization with 15+ techniques, natural language queries, and real-time processing.
+Complete system for intelligent, selective video anonymization with 15+ techniques, natural language queries powered by Gemini AI, and real-time processing capabilities.
 
-## 🌟 Features
+---
+
+## 🌟 Key Features
 
 ### Core Capabilities
 - ✅ **Real-time video processing** with WebSocket streaming
-- ✅ **Webcam, video files, and RTSP streams** support
+- ✅ **Multiple input sources**: Webcam, video files, and RTSP streams
 - ✅ **15+ anonymization techniques** (blur, pixelate, artistic effects)
-- ✅ **Intelligent detection** (faces, bodies, attributes)
-- ✅ **Natural language queries** ("blur all children", "anonymize people in red")
-- ✅ **Batch image processing**
-- ✅ **Optimized performance** with selective computation
-- ✅ **RESTful API** for easy integration
+- ✅ **AI-powered detection** (faces, bodies, attributes)
+- ✅ **Natural language queries** powered by Google Gemini ("blur all children", "anonymize people in red")
+- ✅ **Batch image processing** with ZIP export
+- ✅ **Optimized performance** with GPU acceleration and frame skipping
+- ✅ **RESTful API** for seamless integration
 
 ### Anonymization Techniques
-1. **Gaussian Blur** - Classic smooth blur
-2. **Pixelation** - Retro pixel effect
+1. **Gaussian Blur** - Classic smooth blur effect
+2. **Pixelation** - Retro pixel mosaic
 3. **Mosaic** - Combined pixelate + blur
 4. **Black Box** - Complete blackout
 5. **Median Blur** - Edge-preserving blur
 6. **Bilateral Filter** - Smart edge-aware blur
 7. **Mask Overlay** - Semi-transparent mask
 8. **Edge Preserve Blur** - Advanced smoothing
-9. **Oil Painting** - Artistic effect
+9. **Oil Painting** - Artistic oil paint effect
 10. **Cartoon** - Comic-style rendering
 11. **Negative** - Color inversion
-12. **Grayscale** - Black and white
+12. **Grayscale** - Black and white conversion
 13. **Sepia** - Vintage tone
-14. **Brightness** - Darken effect
+14. **Brightness** - Darkening effect
 15. **Contrast** - Contrast reduction
 
 ### Processing Modes
 - **Face Only** - Fast face detection and anonymization
-- **Body Only** - Full body anonymization
-- **Face & Body** - Combined processing
-- **Query Based** - Natural language filtering with context analysis
+- **Body Only** - Full body detection and anonymization
+- **Face & Body** - Combined face and body processing
+- **Query Based** - AI-powered natural language filtering with Google Gemini
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Installation](#installation)
-2. [Quick Start](#quick-start)
-3. [API Usage](#api-usage)
-4. [Real-Time Streaming](#real-time-streaming)
-5. [Natural Language Queries](#natural-language-queries)
-6. [Performance Optimization](#performance-optimization)
-7. [Project Structure](#project-structure)
-8. [Troubleshooting](#troubleshooting)
+1. [Installation](#-installation)
+2. [Quick Start](#-quick-start)
+3. [API Usage](#-api-usage)
+4. [Real-Time Streaming](#-real-time-streaming)
+5. [Natural Language Queries](#-natural-language-queries-with-gemini-ai)
+6. [Performance Optimization](#-performance-optimization)
+7. [Project Structure](#-project-structure)
+8. [Configuration](#-configuration)
+9. [Deployment](#-deployment)
+10. [Troubleshooting](#-troubleshooting)
 
 ---
 
 ## 🚀 Installation
 
 ### Prerequisites
-- Python 3.8+
-- CUDA-capable GPU (optional, but recommended for real-time)
-- Webcam (for live streaming)
+- Python 3.8 or higher
+- CUDA-capable GPU (optional, but recommended for real-time processing)
+- Webcam (for live streaming demos)
+- Google Gemini API Key (for query-based processing)
 
 ### Step 1: Clone Repository
 ```bash
-git clone https://github.com/yourusername/anonvision.git
+git clone https://github.com/shubham-dube/anonvision.git
 cd anonvision
 ```
 
@@ -76,32 +81,17 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### Step 3: Install Dependencies
+### Step 3: Install Dependencies (Only Required to do this and run)
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 4: Download Models
+### Step 4: Setup Gemini API Key (Not required for ZIP FIle)
 
-The models will auto-download on first use, but you can pre-download:
+Create a `.env` file in the project root:
 
 ```bash
-# Create models directory
-mkdir -p detection/models
-
-# Download face detection model
-cd detection/models
-wget http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar
-wget https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
-wget https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
-
-# YOLOv8 will auto-download on first run
-cd ../..
-```
-
-### Step 5: Verify Installation
-```bash
-python -c "import cv2, torch; print('OpenCV:', cv2.__version__); print('PyTorch:', torch.__version__)"
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ---
@@ -112,11 +102,16 @@ python -c "import cv2, torch; print('OpenCV:', cv2.__version__); print('PyTorch:
 
 ```bash
 python api_server.py
+
+# if only checking real time video anonimization (run after running server, you can change technique also)
+python stream_client.py --webcam 0 --mode face_only --technique gaussian_blur
 ```
 
 Server will start at: `http://localhost:8000`
 
-API Docs: `http://localhost:8000/docs`
+Website: `http://localhost:8000`
+
+Interactive API Docs: `http://localhost:8000/docs`
 
 ### 2. Test with Single Image
 
@@ -157,10 +152,10 @@ curl -X POST "http://localhost:8000/api/process/video" \
   -F "mode=face_only" \
   -F "technique=mosaic" \
   -F "intensity=medium" \
-  -F "frame_skip=2"
+  -F "frame_skip=1"
 ```
 
-Response includes download link to processed video.
+The response includes a download link to the processed video.
 
 ### 4. Real-Time Webcam Streaming
 
@@ -183,7 +178,7 @@ python stream_client.py --webcam 0 --mode face_only --technique gaussian_blur
 **Parameters:**
 - `file` (required): Image file
 - `mode` (optional): `face_only`, `body_only`, `face_and_body`, `query_based`
-- `technique` (optional): See techniques list
+- `technique` (optional): Any technique from the list above
 - `intensity` (optional): `low`, `medium`, `high`
 - `query` (optional): Natural language query (for query_based mode)
 
@@ -193,13 +188,17 @@ import requests
 
 files = {'file': open('image.jpg', 'rb')}
 data = {
-    'mode': 'face_only',
+    'mode': 'query_based',
     'technique': 'gaussian_blur',
-    'intensity': 'medium'
+    'intensity': 'medium',
+    'query': 'blur all children'
 }
 
-response = requests.post('http://localhost:8000/api/process/image', 
-                        files=files, data=data)
+response = requests.post(
+    'http://localhost:8000/api/process/image',
+    files=files,
+    data=data
+)
 
 with open('output.jpg', 'wb') as f:
     f.write(response.content)
@@ -211,9 +210,10 @@ with open('output.jpg', 'wb') as f:
 
 **Parameters:**
 - `files` (required): Multiple image files
+- `return_zip` (optional): Set to `true` to get ZIP file, `false` for JSON links
 - Other parameters same as single image
 
-**Example:**
+**Example - Get ZIP file:**
 ```python
 files = [
     ('files', open('image1.jpg', 'rb')),
@@ -221,14 +221,35 @@ files = [
     ('files', open('image3.jpg', 'rb'))
 ]
 
-data = {'mode': 'face_only', 'technique': 'pixelate'}
+data = {
+    'mode': 'face_only',
+    'technique': 'pixelate',
+    'return_zip': 'true'
+}
 
-response = requests.post('http://localhost:8000/api/process/images',
-                        files=files, data=data)
+response = requests.post(
+    'http://localhost:8000/api/process/images',
+    files=files,
+    data=data
+)
+
+with open('anonymized_images.zip', 'wb') as f:
+    f.write(response.content)
+```
+
+**Example - Get JSON links:**
+```python
+data['return_zip'] = 'false'
+
+response = requests.post(
+    'http://localhost:8000/api/process/images',
+    files=files,
+    data=data
+)
 
 results = response.json()
 for result in results['results']:
-    print(f"{result['filename']}: {result['output_url']}")
+    print(f"{result['filename']}: {result['download_url']}")
 ```
 
 ### Video Processing
@@ -238,7 +259,7 @@ for result in results['results']:
 **Parameters:**
 - `file` (required): Video file
 - `mode`, `technique`, `intensity`: Same as image
-- `frame_skip` (optional): Process every Nth frame (default: 2)
+- `frame_skip` (optional): Process every Nth frame (default: 1 for best quality)
 - `query` (optional): Natural language query
 
 **Example:**
@@ -249,14 +270,17 @@ with open('video.mp4', 'rb') as f:
         'mode': 'face_only',
         'technique': 'mosaic',
         'intensity': 'high',
-        'frame_skip': 3
+        'frame_skip': 1
     }
     
-    response = requests.post('http://localhost:8000/api/process/video',
-                           files=files, data=data)
+    response = requests.post(
+        'http://localhost:8000/api/process/video',
+        files=files,
+        data=data
+    )
     
     result = response.json()
-    print(f"Output: {result['output_url']}")
+    print(f"Download: {result['download_url']}")
     print(f"Stats: {result['metadata']}")
 ```
 
@@ -280,7 +304,7 @@ for tech in techniques['techniques']:
 
 Connect to: `ws://localhost:8000/api/stream/websocket`
 
-**Message Format:**
+**Message Flow:**
 
 1. **Send Configuration:**
 ```json
@@ -316,85 +340,51 @@ Connect to: `ws://localhost:8000/api/stream/websocket`
 }
 ```
 
-### Using the Streaming Client
+## 🧠 Natural Language Queries with Gemini AI
 
-The `stream_client.py` provides easy CLI interface:
+AnonVision uses Google Gemini AI to understand natural language queries and intelligently select people for anonymization based on visual characteristics.
 
-**Webcam:**
-```bash
-python stream_client.py \
-  --webcam 0 \
-  --mode face_only \
-  --technique gaussian_blur \
-  --intensity medium \
-  --save output.mp4
-```
+### How It Works
 
-**Video File:**
-```bash
-python stream_client.py \
-  --video input.mp4 \
-  --mode face_and_body \
-  --technique mosaic \
-  --save anonymized.mp4
-```
-
-**RTSP Stream:**
-```bash
-python stream_client.py \
-  --rtsp rtsp://camera.local:554/stream \
-  --mode face_only \
-  --technique pixelate
-```
-
-**Query-Based:**
-```bash
-python stream_client.py \
-  --webcam 0 \
-  --mode query_based \
-  --query "blur all children"
-```
-
-**Options:**
-- `--server URL`: WebSocket server URL
-- `--save FILE`: Save output video
-- `--no-display`: Disable display window (for headless)
-
----
-
-## 🧠 Natural Language Queries
-
-Query-based mode allows filtering by attributes using natural language.
+1. **Person Detection**: YOLOv8 detects all people in the frame
+2. **Crop Extraction**: Each detected person is cropped from the image
+3. **Gemini Analysis**: Cropped images are sent to Gemini with your query
+4. **Smart Filtering**: Gemini determines which people match your criteria
+5. **Selective Anonymization**: Only matching people are anonymized
 
 ### Supported Query Types
 
-#### Age-Based
+#### Age-Based Queries (depends on Gemini)
 ```
-"blur all children"           # Ages 0-12
-"anonymize teenagers"         # Ages 13-19
-"blur all except adults"      # Invert: blur only non-adults
-"hide elderly people"         # Ages 65+
+"blur all children"              # Ages 0-12
+"anonymize teenagers"            # Ages 13-19
+"blur all adults"                # Ages 20-64
+"hide elderly people"            # Ages 65+
+"blur everyone except adults"    # Invert: blur only non-adults
 ```
 
-#### Gender-Based
+#### Gender-Based Queries
 ```
 "blur all males"
 "anonymize women"
-"hide all men except one"
+"hide all men"
+"blur everyone except females"
 ```
 
-#### Emotion-Based
+#### Emotion-Based Queries
 ```
 "blur happy people"
 "anonymize sad faces"
 "hide angry individuals"
+"blur people who look surprised"
 ```
 
-#### Clothing-Based
+#### Clothing-Based Queries
 ```
 "blur people wearing red"
 "anonymize anyone in blue"
 "hide people in black clothes"
+"blur everyone in dark clothing"
 ```
 
 #### Combined Queries
@@ -402,58 +392,45 @@ Query-based mode allows filtering by attributes using natural language.
 "blur all children wearing red"
 "anonymize sad teenagers"
 "hide elderly men in blue"
+"blur happy people wearing bright colors"
 ```
 
-### Using Queries in API
+### API Usage with Queries
 
 ```python
-data = {
-    'mode': 'query_based',
-    'technique': 'gaussian_blur',
-    'query': 'blur all children'
-}
+import requests
 
 with open('image.jpg', 'rb') as f:
     response = requests.post(
         'http://localhost:8000/api/process/image',
         files={'file': f},
-        data=data
+        data={
+            'mode': 'query_based',
+            'technique': 'gaussian_blur',
+            'intensity': 'high',
+            'query': 'blur all children wearing red shirts'
+        }
     )
+
+with open('output.jpg', 'wb') as f:
+    f.write(response.content)
 ```
 
-### Performance Note
+### Query Processing Performance
 
-Query-based processing requires attribute extraction, which is slower. For real-time applications:
-- Use specific modes (face_only, body_only) when possible
-- Increase `frame_skip` for videos
-- Consider pre-filtering in application logic
+Query-based processing requires AI analysis, which is slower than standard detection:
+
+- **Face Only**: ~30-50ms per frame
+- **Body Only**: ~40-60ms per frame  
+- **Query Based**: ~1500-5000 per frame (depends on number of people)
+
+**Optimization Tips:**
+- Use specific queries to reduce false positives
+- Increase `frame_skip` for videos (e.g., process every 2-3 frames)
+- Use standard modes when queries aren't needed
+- Consider batch processing for large videos
 
 ---
-
-### EXAMPLE QUERIES
-
-# Anonymize by age
-"blur all children"
-"anonymize teenagers"
-"hide faces of elderly people"
-
-# Anonymize by gender
-"blur all men"
-"anonymize women"
-"hide male faces"
-
-# Anonymize by appearance
-"blur people wearing red"
-"anonymize people in dark clothing"
-
-# Anonymize by emotion
-"blur angry people"
-"hide sad faces"
-
-# Complex queries
-"blur everyone except adults"
-"anonymize children and teenagers"
-"hide faces of people wearing red shirts"
 
 ## ⚡ Performance Optimization
 
@@ -465,34 +442,34 @@ Process every Nth frame to speed up video processing:
 # Fast: Process every 3rd frame
 data = {'frame_skip': 3, 'mode': 'face_only'}
 
-# Balanced: Every 2nd frame (default)
+# Balanced: Every 2nd frame
 data = {'frame_skip': 2, 'mode': 'face_only'}
 
-# High quality: Every frame
+# High quality: Every frame (default)
 data = {'frame_skip': 1, 'mode': 'face_only'}
 ```
 
-### Selective Mode
+### Selective Processing Mode
 
 Choose the minimal mode for your needs:
 
 ```python
-# Fastest: Face detection only
+# Fastest: Face detection only (~30ms/frame)
 'mode': 'face_only'
 
-# Medium: Body detection only
+# Medium: Body detection only (~80ms/frame)
 'mode': 'body_only'
 
-# Slower: Both detections
+# Slower: Both detections (~80ms/frame)
 'mode': 'face_and_body'
 
-# Slowest: Attribute extraction
+# Slowest: AI-powered queries (~1500-5000ms/frame)
 'mode': 'query_based'
 ```
 
 ### GPU Acceleration
 
-The system auto-detects CUDA:
+The system automatically detects and uses CUDA:
 
 ```python
 import torch
@@ -501,23 +478,24 @@ print(f"CUDA available: {torch.cuda.is_available()}")
 
 To force CPU mode:
 ```python
+from processor import ProcessingConfig
 config = ProcessingConfig(use_gpu=False)
 ```
 
-### Optimize Detection Confidence
+### Detection Confidence
 
 Reduce false positives and improve speed:
 
 ```python
 config = ProcessingConfig(
     confidence_threshold=0.7,  # Higher = fewer detections
-    min_face_size=50  # Skip tiny faces
+    min_face_size=50           # Skip tiny faces
 )
 ```
 
 ### Benchmark Results
 
-Tested on NVIDIA RTX 3060, 1080p video:
+Tested on NVIDIA RTX 3060, 720 video:
 
 | Mode | Technique | Frame Skip | FPS |
 |------|-----------|------------|-----|
@@ -526,6 +504,7 @@ Tested on NVIDIA RTX 3060, 1080p video:
 | face_only | pixelate | 2 | 47 |
 | face_and_body | mosaic | 2 | 25 |
 | query_based | gaussian_blur | 3 | 12 |
+| query_based | pixelate | 3 | 15 |
 
 ---
 
@@ -533,26 +512,30 @@ Tested on NVIDIA RTX 3060, 1080p video:
 
 ```
 anonvision/
-├── detection/                    # Detection modules
+├── detection/                      # Detection modules
 │   ├── __init__.py
-│   ├── person_detector.py       # YOLOv8 person detection
-│   ├── face_detection.py        # OpenCV DNN face detection
-│   ├── attribute_extractor.py   # DeepFace attributes
-│   ├── clothing_analyzer.py     # Color extraction
-│   ├── scene_classifier.py      # Places365 scene
-│   └── models/                  # Model files (auto-download)
+│   ├── person_detector.py         # YOLOv8 person detection
+│   ├── face_detection.py          # OpenCV DNN face detection
+│   ├── attribute_extractor.py     # DeepFace attributes (fallback)
+│   ├── gemini_analyzer.py         # Google Gemini AI integration
+│   ├── clothing_analyzer.py       # Color extraction (fallback)
+│   ├── scene_classifier.py        # Places365 scene context
+│   └── models/                    # Model files (auto-download)
 │
-├── processor.py                 # Core processing engine
-├── api_server.py               # FastAPI server
-├── stream_client.py            # Real-time client
-├── requirements.txt            # Dependencies
-├── README.md                   # This file
+├── processor.py                   # Core processing engine
+├── api_server.py                 # FastAPI server
+├── stream_client.py              # Real-time streaming client
+├── requirements.txt              # Python dependencies
+├── .env                          # Environment variables (create this)
+├── README.md                     # This file
 │
-├── uploads/                    # Temporary upload storage
-├── outputs/                    # Processed outputs
-└── tests/                      # Test files
+├── static/                       # Web interface
+│   └── index.html
+│
+├── uploads/                      # Temporary upload storage
+├── outputs/                      # Processed outputs
+└── tests/                        # Test files
     ├── test_image.jpg
-    └── test_video.mp4
 ```
 
 ---
@@ -561,87 +544,34 @@ anonvision/
 
 ### Environment Variables
 
-Create `.env` file:
+Create a `.env` file in the project root:
 
 ```bash
-# Server
-HOST=0.0.0.0
-PORT=8000
-DEBUG=False
-
-# Processing
-DEFAULT_MODE=face_only
-DEFAULT_TECHNIQUE=gaussian_blur
-DEFAULT_INTENSITY=medium
-DEFAULT_FRAME_SKIP=2
-
-# Storage
-UPLOAD_DIR=uploads
-OUTPUT_DIR=outputs
-MAX_UPLOAD_SIZE=100MB
-
-# Performance
-USE_GPU=True
-CONFIDENCE_THRESHOLD=0.5
-MIN_FACE_SIZE=30
+# Required: Gemini API Key
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ### Advanced Configuration
 
-Edit `processor.py`:
+Edit `processor.py` for fine-tuning:
 
 ```python
+from processor import ProcessingConfig, ProcessingMode, AnonymizationTechnique
+
 config = ProcessingConfig(
     mode=ProcessingMode.FACE_ONLY,
     technique=AnonymizationTechnique.GAUSSIAN_BLUR,
     intensity='medium',
-    frame_skip=2,
-    face_padding=0.15,      # 15% padding around faces
-    body_padding=0.05,       # 5% padding around bodies
-    require_context=False,   # Enable scene classification
-    require_attributes=False, # Enable attribute extraction
-    min_face_size=30,        # Minimum face size in pixels
-    confidence_threshold=0.5, # Detection confidence
-    use_gpu=True
+    frame_skip=1,
+    face_padding=0.15,           # 15% padding around faces
+    body_padding=0.05,            # 5% padding around bodies
+    require_context=False,        # Enable scene classification
+    require_attributes=False,     # Enable attribute extraction
+    min_face_size=30,             # Minimum face size in pixels
+    confidence_threshold=0.5,     # Detection confidence
+    use_gpu=True,                 # Use GPU if available
+    query=None                    # Natural language query
 )
-```
-
----
-
-## 🧪 Testing
-
-### Run Tests
-
-```bash
-# Test image processing
-python -c "
-from processor import *
-import cv2
-
-config = ProcessingConfig(mode=ProcessingMode.FACE_ONLY)
-processor = AnonVisionProcessor(config)
-
-frame = cv2.imread('test_image.jpg')
-result, metadata = processor.process_frame(frame, force_process=True)
-cv2.imwrite('output.jpg', result)
-print('Success!', metadata)
-"
-```
-
-### API Tests
-
-```bash
-# Health check
-curl http://localhost:8000/api/health
-
-# Get techniques
-curl http://localhost:8000/api/techniques
-
-# Process test image
-curl -X POST http://localhost:8000/api/process/image \
-  -F "file=@test_image.jpg" \
-  -F "mode=face_only" \
-  -o output.jpg
 ```
 
 ---
@@ -653,12 +583,13 @@ curl -X POST http://localhost:8000/api/process/image \
 **1. CUDA Out of Memory**
 ```
 Solution: Reduce batch size or use CPU mode
-config.use_gpu = False
+config = ProcessingConfig(use_gpu=False)
 ```
 
-**2. Models Not Downloading**
+**2. Gemini API Key Error**
 ```
-Solution: Download manually (see Installation Step 4)
+Error: "API key not found"
+Solution: Create .env file with GEMINI_API_KEY=your_key_here
 ```
 
 **3. Webcam Not Found**
@@ -669,127 +600,60 @@ python -c "import cv2; print(cv2.VideoCapture(0).isOpened())"
 
 **4. Slow Processing**
 ```
-Solution: 
-- Increase frame_skip
+Solutions:
+- Increase frame_skip for videos
 - Use simpler techniques (gaussian_blur, pixelate)
-- Use face_only mode
-- Enable GPU
+- Use face_only mode instead of query_based
+- Enable GPU acceleration
+- Reduce video resolution
 ```
 
 **5. WebSocket Connection Failed**
 ```
-Solution: 
-- Check server is running
-- Verify firewall settings
-- Use correct URL (ws:// not wss://)
+Solutions:
+- Verify server is running: python api_server.py
+- Check firewall settings
+- Use correct URL: ws://localhost:8000/api/stream/websocket
 ```
 
-### Debug Mode
-
-Enable verbose logging:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
+**6. Query Not Working**
 ```
-
----
-
-## 🚀 Deployment
-
-### Docker (Recommended)
-
-Create `Dockerfile`:
-
-```dockerfile
-FROM python:3.10-slim
-
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["python", "api_server.py"]
+Solutions:
+- Verify GEMINI_API_KEY is set in .env
+- Check your Gemini API quota
+- Use simpler, clearer queries
+- Try the fallback rule-based system by removing API key
 ```
-
-Build and run:
-```bash
-docker build -t anonvision .
-docker run -p 8000:8000 anonvision
-```
-
-### Production Tips
-
-1. **Use Gunicorn** for production:
-```bash
-pip install gunicorn
-gunicorn api_server:app -w 4 -k uvicorn.workers.UvicornWorker
-```
-
-2. **Nginx Reverse Proxy:**
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-```
-
-3. **Rate Limiting:**
-```python
-from slowapi import Limiter
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-```
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file
 
 ---
 
 ## 🤝 Contributing
 
-Contributions welcome! Please:
+Contributions are welcome! Please:
+
 1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Open Pull Request
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
 ## 📞 Support
 
-- GitHub Issues: [Create Issue](https://github.com/yourusername/anonvision/issues)
-- Email: support@anonvision.com
-- Documentation: [Wiki](https://github.com/yourusername/anonvision/wiki)
+- **GitHub Issues**: [Create Issue](https://github.com/shubham-dube/anonvision/issues)
+- **Documentation**: [Wiki](https://github.com/shubham-dube/anonvision)
+- **Email**: itshubhamofficial@gmail.com
 
 ---
 
 ## 🎯 Roadmap
 
-- [ ] GPU batch processing
+- [x] Real-time video processing
+- [x] Natural language queries with Gemini AI
+- [x] 15+ anonymization techniques
+- [x] Batch processing with ZIP export
+- [ ] GPU batch processing optimization
 - [ ] Cloud storage integration (S3, GCS)
 - [ ] Multi-language support
 - [ ] Mobile app (React Native)
@@ -797,7 +661,27 @@ Contributions welcome! Please:
 - [ ] Custom model training interface
 - [ ] Video analytics dashboard
 - [ ] RTMP output streaming
+- [ ] Face recognition whitelist/blacklist
+
+---
+
+## 🙏 Acknowledgments
+
+- **YOLOv8** by Ultralytics for person detection
+- **OpenCV** for face detection and image processing
+- **Google Gemini AI** for intelligent query understanding
+- **DeepFace** for attribute extraction (fallback)
+- **FastAPI** for the REST API framework
+- **PyTorch** for GPU acceleration
+
+---
+
+## ⭐ Star History
+
+If you find this project useful, please consider giving it a star!
 
 ---
 
 **Built with ❤️ for Privacy and Innovation**
+
+Made possible by cutting-edge AI and computer vision technologies.
