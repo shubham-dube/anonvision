@@ -10,7 +10,6 @@ from detection.person_detector import PersonDetector
 from detection.face_detection import FaceDetector
 from detection.attribute_extractor import AttributeExtractor
 from detection.clothing_analyzer import analyze_clothing
-from detection.pose_estimator import PoseEstimator
 from detection.scene_classifier import SceneClassifier
 
 
@@ -27,7 +26,6 @@ class IntegratedDetector:
         self.person_detector = PersonDetector()
         self.face_detector = FaceDetector()
         self.attribute_extractor = AttributeExtractor()
-        self.pose_estimator = PoseEstimator()
         self.scene_classifier = SceneClassifier()
         
         self.device = device
@@ -67,59 +65,6 @@ class IntegratedDetector:
             return [x1 + fx, y1 + fy, fw, fh]
         
         return None
-    
-    def classify_pose(self, keypoints, person_bbox):
-        """
-        Simple pose classification based on keypoint positions.
-        
-        Args:
-            keypoints: Dictionary of pose keypoints
-            person_bbox: (x, y, w, h) of person
-            
-        Returns:
-            Pose label: 'standing', 'sitting', 'walking', 'unknown'
-        """
-        if not keypoints:
-            return "unknown"
-        
-        try:
-            # MediaPipe landmark indices:
-            # 11, 12: shoulders, 23, 24: hips, 25, 26: knees, 27, 28: ankles
-            
-            left_shoulder = keypoints.get(11)
-            right_shoulder = keypoints.get(12)
-            left_hip = keypoints.get(23)
-            right_hip = keypoints.get(24)
-            left_knee = keypoints.get(25)
-            right_knee = keypoints.get(26)
-            
-            if not all([left_shoulder, right_shoulder, left_hip, right_hip, left_knee]):
-                return "unknown"
-            
-            # Calculate average positions
-            shoulder_y = (left_shoulder[1] + right_shoulder[1]) / 2
-            hip_y = (left_hip[1] + right_hip[1]) / 2
-            knee_y = (left_knee[1] + right_knee[1]) / 2
-            
-            # Normalized relative positions (0-1 scale)
-            torso_length = hip_y - shoulder_y
-            
-            if torso_length <= 0:
-                return "unknown"
-            
-            knee_hip_dist = (knee_y - hip_y) / torso_length
-            
-            # Simple heuristics
-            if knee_hip_dist < 0.5:
-                return "sitting"
-            elif knee_hip_dist > 1.2:
-                return "standing"
-            else:
-                return "walking"
-                
-        except Exception as e:
-            print(f"Pose classification error: {e}")
-            return "unknown"
     
     def process_frame(self, frame: np.ndarray, frame_id: int = 0) -> Dict[str, Any]:
         """
