@@ -31,3 +31,5 @@ python-dotenv>=1.0.0
 
 # Optional: For ngrok tunnel (development)
 pyngrok>=6.0.0
+google-generativeai
+dotenv

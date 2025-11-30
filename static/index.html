@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,21 +13,35 @@
             border-radius: 8px;
             overflow: hidden;
         }
+
         .status-badge {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
+
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .5;
+            }
         }
-        .processing { border: 2px solid #10b981; }
+
+        .processing {
+            border: 2px solid #10b981;
+        }
     </style>
 </head>
+
 <body class="bg-gray-900 text-white min-h-screen">
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <div class="text-center mb-8">
-            <h1 class="text-5xl font-bold mb-2 bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+            <h1
+                class="text-5xl font-bold mb-2 bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
                 AnonVision
             </h1>
             <p class="text-gray-400">Real-Time Context-Aware Video Anonymization</p>
@@ -36,19 +51,23 @@
         <div class="bg-gray-800 rounded-lg p-6 mb-6">
             <h2 class="text-2xl font-bold mb-4">Select Processing Mode</h2>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <button onclick="selectMode('image')" class="mode-btn bg-blue-600 hover:bg-blue-700 p-4 rounded-lg transition">
+                <button onclick="selectMode('image')"
+                    class="mode-btn bg-blue-600 hover:bg-blue-700 p-4 rounded-lg transition">
                     <div class="text-3xl mb-2">🖼️</div>
                     <div class="font-semibold">Single Image</div>
                 </button>
-                <button onclick="selectMode('images')" class="mode-btn bg-green-600 hover:bg-green-700 p-4 rounded-lg transition">
+                <button onclick="selectMode('images')"
+                    class="mode-btn bg-green-600 hover:bg-green-700 p-4 rounded-lg transition">
                     <div class="text-3xl mb-2">📚</div>
                     <div class="font-semibold">Batch Images</div>
                 </button>
-                <button onclick="selectMode('video')" class="mode-btn bg-purple-600 hover:bg-purple-700 p-4 rounded-lg transition">
+                <button onclick="selectMode('video')"
+                    class="mode-btn bg-purple-600 hover:bg-purple-700 p-4 rounded-lg transition">
                     <div class="text-3xl mb-2">🎬</div>
                     <div class="font-semibold">Video File</div>
                 </button>
-                <button onclick="selectMode('webcam')" class="mode-btn bg-red-600 hover:bg-red-700 p-4 rounded-lg transition">
+                <button onclick="selectMode('webcam')"
+                    class="mode-btn bg-red-600 hover:bg-red-700 p-4 rounded-lg transition">
                     <div class="text-3xl mb-2">📹</div>
                     <div class="font-semibold">Live Webcam</div>
                 </button>
@@ -89,13 +108,16 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-2">Frame Skip (Video)</label>
-                    <input type="number" id="frameSkip" value="1" min="1" max="10" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                    <input type="number" id="frameSkip" value="1" min="1" max="10"
+                        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
                 </div>
             </div>
             <div id="querySection" class="mt-4 hidden">
                 <label class="block text-sm font-medium mb-2">Natural Language Query</label>
-                <input type="text" id="query" placeholder="e.g., blur all children, anonymize people wearing red" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
-                <p class="text-sm text-gray-400 mt-1">Examples: "blur all children", "anonymize adults", "hide faces of people wearing red"</p>
+                <input type="text" id="query" placeholder="e.g., blur all children, anonymize people wearing red"
+                    class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                <p class="text-sm text-gray-400 mt-1">Examples: "blur all children", "anonymize adults", "hide faces of
+                    people wearing red"</p>
             </div>
         </div>
 
@@ -103,7 +125,8 @@
         <div id="imageSection" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
             <h2 class="text-2xl font-bold mb-4">Upload Image</h2>
             <input type="file" id="imageFile" accept="image/*" class="mb-4 w-full">
-            <button onclick="processImage()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition">
+            <button onclick="processImage()"
+                class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition">
                 Process Image
             </button>
             <div id="imageResult" class="mt-6"></div>
@@ -113,10 +136,12 @@
             <h2 class="text-2xl font-bold mb-4">Upload Multiple Images</h2>
             <input type="file" id="imagesFiles" accept="image/*" multiple class="mb-4 w-full">
             <div class="flex gap-4">
-                <button onclick="processImages(false)" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition">
+                <button onclick="processImages(false)"
+                    class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition">
                     Process (Individual Links)
                 </button>
-                <button onclick="processImages(true)" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition">
+                <button onclick="processImages(true)"
+                    class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition">
                     Process & Download ZIP
                 </button>
             </div>
@@ -126,12 +151,14 @@
         <div id="videoSection" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
             <h2 class="text-2xl font-bold mb-4">Upload Video</h2>
             <input type="file" id="videoFile" accept="video/*" class="mb-4 w-full">
-            <button onclick="processVideo()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition">
+            <button onclick="processVideo()"
+                class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition">
                 Process Video
             </button>
             <div id="videoProgress" class="mt-4 hidden">
                 <div class="bg-gray-700 rounded-full h-4">
-                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300"
+                        style="width: 0%"></div>
                 </div>
                 <p id="progressText" class="text-center mt-2 text-gray-400"></p>
             </div>
@@ -149,7 +176,8 @@
                     </div>
                 </div>
                 <div>
-                    <h3 class="font-semibold mb-2">Anonymized <span id="streamStatus" class="status-badge text-sm px-2 py-1 bg-red-600 rounded-full ml-2">Disconnected</span></h3>
+                    <h3 class="font-semibold mb-2">Anonymized <span id="streamStatus"
+                            class="status-badge text-sm px-2 py-1 bg-red-600 rounded-full ml-2">Disconnected</span></h3>
                     <div class="video-container processing">
                         <img id="processedFrame" class="w-full" alt="Processed stream">
                     </div>
@@ -170,10 +198,12 @@
                 </div>
             </div>
             <div class="mt-6 flex gap-4">
-                <button id="startWebcam" onclick="startWebcam()" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition">
+                <button id="startWebcam" onclick="startWebcam()"
+                    class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition">
                     Start Stream
                 </button>
-                <button id="stopWebcam" onclick="stopWebcam()" class="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition hidden">
+                <button id="stopWebcam" onclick="stopWebcam()"
+                    class="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition hidden">
                     Stop Stream
                 </button>
             </div>
@@ -192,12 +222,12 @@
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('ring-4', 'ring-white'));
             event.target.closest('.mode-btn').classList.add('ring-4', 'ring-white');
-            
+
             // Hide all sections
             ['imageSection', 'imagesSection', 'videoSection', 'webcamSection'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
-            
+
             // Show selected section
             document.getElementById(mode + 'Section').classList.remove('hidden');
         }
@@ -256,7 +286,7 @@
                         detections: response.headers.get('X-Detections'),
                         anonymized: response.headers.get('X-Anonymized')
                     };
-                    
+
                     result.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -295,7 +325,7 @@
 
             const config = getConfig();
             const formData = new FormData();
-            
+
             for (let file of files) {
                 formData.append('files', file);
             }
@@ -330,7 +360,7 @@
                         <p class="text-green-500">✅ Processed ${data.processed}/${data.total} images</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     `;
-                    
+
                     for (let item of data.results) {
                         if (item.status === 'success') {
                             html += `
@@ -344,7 +374,7 @@
                             `;
                         }
                     }
-                    
+
                     html += '</div></div>';
                     result.innerHTML = html;
                 }
@@ -374,7 +404,7 @@
             const result = document.getElementById('videoResult');
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
-            
+
             progress.classList.remove('hidden');
             result.innerHTML = '';
             progressText.textContent = 'Uploading and processing...';
@@ -387,11 +417,11 @@
                 });
 
                 progressBar.style.width = '100%';
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     progressText.textContent = 'Processing complete!';
-                    
+
                     result.innerHTML = `
                         <div class="bg-gray-700 p-6 rounded-lg">
                             <h3 class="font-semibold mb-4 text-xl">✅ Video Processed Successfully!</h3>
@@ -421,7 +451,7 @@
                             </a>
                         </div>
                     `;
-                    
+
                     setTimeout(() => progress.classList.add('hidden'), 3000);
                 } else {
                     const error = await response.json();
@@ -435,22 +465,49 @@
         // Webcam streaming
         async function startWebcam() {
             try {
-                // Get webcam access
-                webcamStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480 } 
+                // Stop any existing streams first
+                if (websocket) {
+                    websocket.close();
+                    websocket = null;
+                }
+
+                if (webcamStream) {
+                    webcamStream.getTracks().forEach(track => track.stop());
+                    webcamStream = null;
+                }
+
+                isStreaming = false;
+
+                // Get fresh webcam access
+                webcamStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    }
                 });
-                
+
                 const video = document.getElementById('webcamVideo');
                 video.srcObject = webcamStream;
-                
-                // Connect WebSocket
-                websocket = new WebSocket('ws://localhost:8000/api/stream/websocket');
-                
+
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+
+                // Connect WebSocket with timestamp to force new connection
+                const timestamp = new Date().getTime();
+                websocket = new WebSocket(`ws://localhost:8000/api/stream/websocket?t=${timestamp}`);
+
                 websocket.onopen = async () => {
+                    console.log('WebSocket connected');
                     document.getElementById('streamStatus').textContent = 'Connected';
                     document.getElementById('streamStatus').classList.remove('bg-red-600');
                     document.getElementById('streamStatus').classList.add('bg-green-600');
-                    
+
                     // Send config
                     const config = getConfig();
                     websocket.send(JSON.stringify({
@@ -458,40 +515,46 @@
                         config: config
                     }));
                 };
-                
+
                 websocket.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-                    
+
                     if (data.type === 'config_ack') {
+                        console.log('Config acknowledged, starting stream');
                         isStreaming = true;
                         document.getElementById('startWebcam').classList.add('hidden');
                         document.getElementById('stopWebcam').classList.remove('hidden');
-                        sendFrame();
+                        // Start sending frames
+                        requestAnimationFrame(sendFrame);
                     } else if (data.type === 'frame') {
                         const img = document.getElementById('processedFrame');
                         img.src = 'data:image/jpeg;base64,' + data.frame;
-                        
+
                         // Update stats
                         const meta = data.metadata;
                         document.getElementById('fpsDisplay').textContent = meta.fps?.toFixed(1) || '0';
                         document.getElementById('detectionsDisplay').textContent = meta.detections || '0';
                         document.getElementById('anonymizedDisplay').textContent = meta.anonymized || '0';
-                        
-                        if (isStreaming) {
-                            setTimeout(() => sendFrame(), 33); // ~30 FPS
-                        }
                     } else if (data.type === 'error') {
                         console.error('Stream error:', data.message);
                     }
                 };
-                
+
                 websocket.onerror = (error) => {
                     console.error('WebSocket error:', error);
                     stopWebcam();
                 };
-                
+
+                websocket.onclose = () => {
+                    console.log('WebSocket closed');
+                    if (isStreaming) {
+                        stopWebcam();
+                    }
+                };
+
             } catch (error) {
                 alert('Error accessing webcam: ' + error.message);
+                console.error('Webcam error:', error);
             }
         }
 
@@ -499,43 +562,60 @@
             if (!isStreaming || !websocket || websocket.readyState !== WebSocket.OPEN) {
                 return;
             }
-            
+
             const video = document.getElementById('webcamVideo');
             const canvas = document.getElementById('webcamCanvas');
+
+            if (!video.videoWidth || !video.videoHeight) {
+                // Video not ready yet
+                requestAnimationFrame(sendFrame);
+                return;
+            }
+
             const ctx = canvas.getContext('2d');
-            
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
-            
+
             canvas.toBlob((blob) => {
-                if (!blob) return;
-                
+                if (!blob || !isStreaming) return;
+
                 const reader = new FileReader();
                 reader.onload = () => {
+                    if (!isStreaming || websocket.readyState !== WebSocket.OPEN) return;
+
                     const base64 = reader.result.split(',')[1];
-                    websocket.send(JSON.stringify({
-                        type: 'frame',
-                        frame: base64
-                    }));
+                    try {
+                        websocket.send(JSON.stringify({
+                            type: 'frame',
+                            frame: base64
+                        }));
+
+                        // Continue loop
+                        if (isStreaming) {
+                            setTimeout(() => requestAnimationFrame(sendFrame), 100); // ~10 FPS for stability
+                        }
+                    } catch (e) {
+                        console.error('Send error:', e);
+                    }
                 };
                 reader.readAsDataURL(blob);
-            }, 'image/jpeg', 0.85);
+            }, 'image/jpeg', 0.7);
         }
 
         function stopWebcam() {
             isStreaming = false;
-            
+
             if (websocket) {
                 websocket.close();
                 websocket = null;
             }
-            
+
             if (webcamStream) {
                 webcamStream.getTracks().forEach(track => track.stop());
                 webcamStream = null;
             }
-            
+
             document.getElementById('streamStatus').textContent = 'Disconnected';
             document.getElementById('streamStatus').classList.remove('bg-green-600');
             document.getElementById('streamStatus').classList.add('bg-red-600');
@@ -544,4 +624,5 @@
         }
     </script>
 </body>
+
 </html>

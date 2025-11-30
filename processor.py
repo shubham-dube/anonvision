@@ -486,92 +486,125 @@ class AnonVisionProcessor:
         return frame
     
     def _process_query_based(self, frame: np.ndarray, metadata: Dict) -> np.ndarray:
-        """Query-based selective anonymization"""
+        """Query-based selective anonymization with Gemini + Debug logs"""
+
+        print("[DEBUG] Starting query-based processing")
+
         if not self.config.query:
+            print("[DEBUG] No query found, returning original frame")
             return frame
-        
+
         # Parse query
+        print(f"[DEBUG] Parsing query: {self.config.query}")
         rules = self.parser.parse(self.config.query)
-        
-        # If mode is 'all' or 'none', use simpler processing
-        if rules.get('mode') == 'all':
-            return self._process_faces_and_bodies(frame, metadata)
-        elif rules.get('mode') == 'none':
-            metadata['detections'] = 0
-            metadata['anonymized'] = 0
-            return frame
-        
-        # Need context - detect people and analyze
+        print(f"[DEBUG] Parsed rules: {rules}")
+
+        # Detect people
+        print("[DEBUG] Running person detection...")
         person_detector = self.loader.get_person_detector()
-        face_detector = self.loader.get_face_detector()
         people = person_detector.detect_people(frame)
-        
+
         metadata['detections'] = len(people)
+        print(f"[DEBUG] Detected people: {len(people)} → {people}")
+
+        if len(people) == 0:
+            print("[DEBUG] No people found, returning frame")
+            return frame
+
+        # Try Gemini analysis
+        try:
+            from detection.gemini_analyzer import GeminiAnalyzer
+            analyzer = GeminiAnalyzer()
+
+            print("[DEBUG] Sending data to Gemini for analysis...")
+            matches = analyzer.analyze_people_in_frame(frame, people, self.config.query)
+            print(f"[DEBUG] Gemini matches returned: {matches}")
+
+            # Apply anonymization based on Gemini results
+            for idx, (person_bbox, should_anonymize) in enumerate(zip(people, matches)):
+                print(f"[DEBUG] Person {idx}: bbox={person_bbox}, should_anonymize={should_anonymize}")
+
+                # Invert if needed
+                if rules.get('invert', False):
+                    should_anonymize = not should_anonymize
+                    print(f"[DEBUG] Inverted decision → {should_anonymize}")
+
+                if should_anonymize:
+                    x, y, w, h = person_bbox
+                    pad_w = int(w * self.config.body_padding)
+                    pad_h = int(h * self.config.body_padding)
+
+                    x1 = max(0, x - pad_w)
+                    y1 = max(0, y - pad_h)
+                    x2 = min(frame.shape[1], x + w + pad_w)
+                    y2 = min(frame.shape[0], y + h + pad_h)
+
+                    print(f"[DEBUG] ROI coords: ({x1},{y1}) → ({x2},{y2})")
+
+                    roi = frame[y1:y2, x1:x2]
+                    if roi.size > 0:
+                        print("[DEBUG] Applying anonymization technique...")
+                        anonymized_roi = self.engine.apply_technique(
+                            roi, self.config.technique, self.config.intensity
+                        )
+                        frame[y1:y2, x1:x2] = anonymized_roi
+                        metadata['anonymized'] += 1
+                        print("[DEBUG] ROI anonymized successfully")
+
+        except Exception as e:
+            print(f"[DEBUG] Gemini failed → {e}")
+            print("[DEBUG] Falling back to rule-based system...")
+            return self._process_query_based_fallback(frame, metadata, rules, people)
+
+        print("[DEBUG] Finished processing the frame")
+        return frame
+
+    def _process_query_based_fallback(self, frame: np.ndarray, metadata: Dict, 
+                                    rules: Dict, people: List) -> np.ndarray:
+        """Fallback rule-based processing (original logic)"""
+        face_detector = self.loader.get_face_detector()
         
-        # For each person, check if they match filters
         for person_bbox in people:
             x, y, w, h = person_bbox
-            
-            # Detect face within person
             person_crop = frame[y:y+h, x:x+w]
             faces_in_person = face_detector.detect(person_crop)
             
             should_anonymize = False
             
             if faces_in_person:
-                # Extract attributes only if needed
                 fx, fy, fw, fh = faces_in_person[0]
                 face_crop = person_crop[fy:fy+fh, fx:fx+fw]
                 
                 if face_crop.size > 0:
-                    # Check which attributes we need
                     need_age = any(f['type'] == 'age' for f in rules.get('filters', []))
                     need_gender = any(f['type'] == 'gender' for f in rules.get('filters', []))
                     need_emotion = any(f['type'] == 'emotion' for f in rules.get('filters', []))
-                    need_color = any(f['type'] == 'clothing_color' for f in rules.get('filters', []))
                     
                     if need_age or need_gender or need_emotion:
                         extractor = self.loader.get_attribute_extractor()
                         attrs = extractor.analyze(face_crop)
                         
-                        # Check each filter
                         for filter_rule in rules.get('filters', []):
                             if filter_rule['type'] == 'age':
                                 age = attrs.get('age', 0)
                                 min_age, max_age = filter_rule['range']
                                 if min_age <= age <= max_age:
                                     should_anonymize = True
-                            
                             elif filter_rule['type'] == 'gender':
                                 gender = attrs.get('gender', '').lower()
                                 if filter_rule['value'] in gender:
                                     should_anonymize = True
-                            
                             elif filter_rule['type'] == 'emotion':
                                 emotion = attrs.get('dominant_emotion', '').lower()
                                 if filter_rule['value'] in emotion:
                                     should_anonymize = True
-                    
-                    if need_color:
-                        # Import clothing analyzer only if needed
-                        from detection.clothing_analyzer import analyze_clothing
-                        clothing = analyze_clothing(frame, [x, y, x+w, y+h])
-                        color = clothing.get('color', '').lower()
-                        
-                        for filter_rule in rules.get('filters', []):
-                            if filter_rule['type'] == 'clothing_color':
-                                if filter_rule['value'] in color:
-                                    should_anonymize = True
             
-            # Handle inversion
             if rules.get('invert', False):
                 should_anonymize = not should_anonymize
             
-            # Anonymize if matches
             if should_anonymize:
                 pad_w = int(w * self.config.body_padding)
                 pad_h = int(h * self.config.body_padding)
-                
                 x1 = max(0, x - pad_w)
                 y1 = max(0, y - pad_h)
                 x2 = min(frame.shape[1], x + w + pad_w)

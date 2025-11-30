@@ -430,6 +430,31 @@ Query-based processing requires attribute extraction, which is slower. For real-
 
 ---
 
+### EXAMPLE QUERIES
+
+# Anonymize by age
+"blur all children"
+"anonymize teenagers"
+"hide faces of elderly people"
+
+# Anonymize by gender
+"blur all men"
+"anonymize women"
+"hide male faces"
+
+# Anonymize by appearance
+"blur people wearing red"
+"anonymize people in dark clothing"
+
+# Anonymize by emotion
+"blur angry people"
+"hide sad faces"
+
+# Complex queries
+"blur everyone except adults"
+"anonymize children and teenagers"
+"hide faces of people wearing red shirts"
+
 ## ⚡ Performance Optimization
 
 ### Frame Skipping

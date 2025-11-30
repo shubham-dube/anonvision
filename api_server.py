@@ -20,6 +20,9 @@ import base64
 from datetime import datetime
 import zipfile
 import io
+from dotenv import load_dotenv
+load_dotenv()
+
 
 from processor import (
     AnonVisionProcessor, ProcessingConfig, ProcessingMode,
@@ -404,8 +407,11 @@ async def websocket_stream(websocket: WebSocket):
             message = json.loads(data)
             
             if message.get('type') == 'config':
+                # CRITICAL FIX: Always create new processor instance
                 config = parse_config(message.get('config', {}))
                 processor = AnonVisionProcessor(config)
+                processor.reset_stats()  # Reset stats for new session
+                
                 await websocket.send_json({
                     'type': 'config_ack',
                     'status': 'ready',
@@ -421,32 +427,43 @@ async def websocket_stream(websocket: WebSocket):
                     })
                     continue
                 
-                # Decode frame
-                frame_b64 = message.get('frame', '')
-                frame_bytes = base64.b64decode(frame_b64)
-                nparr = np.frombuffer(frame_bytes, np.uint8)
-                frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                
-                if frame is None:
+                try:
+                    # Decode frame
+                    frame_b64 = message.get('frame', '')
+                    if not frame_b64:
+                        continue
+                    
+                    frame_bytes = base64.b64decode(frame_b64)
+                    nparr = np.frombuffer(frame_bytes, np.uint8)
+                    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    
+                    if frame is None:
+                        await websocket.send_json({
+                            'type': 'error',
+                            'message': 'Invalid frame'
+                        })
+                        continue
+                    
+                    # Process frame
+                    processed_frame, metadata = processor.process_frame(frame, force_process=True)
+                    
+                    # Encode response with lower quality for speed
+                    _, buffer = cv2.imencode('.jpg', processed_frame, 
+                                            [cv2.IMWRITE_JPEG_QUALITY, 75])
+                    frame_b64 = base64.b64encode(buffer).decode('utf-8')
+                    
+                    await websocket.send_json({
+                        'type': 'frame',
+                        'frame': frame_b64,
+                        'metadata': metadata
+                    })
+                    
+                except Exception as e:
+                    print(f"Frame processing error: {e}")
                     await websocket.send_json({
                         'type': 'error',
-                        'message': 'Invalid frame'
+                        'message': f'Frame processing failed: {str(e)}'
                     })
-                    continue
-                
-                # CRITICAL: Always force process for real-time streaming
-                processed_frame, metadata = processor.process_frame(frame, force_process=True)
-                
-                # Encode response
-                _, buffer = cv2.imencode('.jpg', processed_frame, 
-                                        [cv2.IMWRITE_JPEG_QUALITY, 85])
-                frame_b64 = base64.b64encode(buffer).decode('utf-8')
-                
-                await websocket.send_json({
-                    'type': 'frame',
-                    'frame': frame_b64,
-                    'metadata': metadata
-                })
     
     except WebSocketDisconnect:
         if client_id in active_connections:
@@ -455,10 +472,18 @@ async def websocket_stream(websocket: WebSocket):
     
     except Exception as e:
         print(f"WebSocket error: {e}")
-        await websocket.send_json({
-            'type': 'error',
-            'message': str(e)
-        })
+        try:
+            await websocket.send_json({
+                'type': 'error',
+                'message': str(e)
+            })
+        except:
+            pass
+    
+    finally:
+        # Cleanup
+        if client_id in active_connections:
+            del active_connections[client_id]
 
 
 # ===== Video Feed Simulator =====
@@ -480,7 +505,7 @@ if __name__ == "__main__":
     Path("static").mkdir(exist_ok=True)
     
     print("=" * 60)
-    print("  AnonVision API Server - FIXED VERSION")
+    print("  AnonVision API Server")
     print("=" * 60)
     print(f"  Upload directory: {UPLOAD_DIR.absolute()}")
     print(f"  Output directory: {OUTPUT_DIR.absolute()}")
