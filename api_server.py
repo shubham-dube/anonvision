@@ -1,6 +1,5 @@
 """
 AnonVision FastAPI Server
-Handles image/video upload, real-time streaming, and processing requests
 """
 
 from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect, Form, HTTPException
@@ -19,6 +18,8 @@ import shutil
 from pathlib import Path
 import base64
 from datetime import datetime
+import zipfile
+import io
 
 from processor import (
     AnonVisionProcessor, ProcessingConfig, ProcessingMode,
@@ -47,34 +48,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve output files
+# Serve static files
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
-
-
-# ===== Request Models =====
-class ImageProcessRequest(BaseModel):
-    mode: str = "face_only"  # face_only, body_only, face_and_body, query_based
-    technique: str = "gaussian_blur"
-    intensity: str = "medium"  # low, medium, high
-    query: Optional[str] = None
-
-
-class VideoProcessRequest(BaseModel):
-    mode: str = "face_only"
-    technique: str = "gaussian_blur"
-    intensity: str = "medium"
-    query: Optional[str] = None
-    frame_skip: int = 2  # Process every Nth frame
-
-
-class StreamConfig(BaseModel):
-    mode: str = "face_only"
-    technique: str = "gaussian_blur"
-    intensity: str = "medium"
-    query: Optional[str] = None
-    stream_url: Optional[str] = None  # RTSP/HTTP stream URL
-    use_webcam: bool = False
-    webcam_id: int = 0
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # ===== Helper Functions =====
@@ -110,7 +86,7 @@ def parse_config(request_data: dict) -> ProcessingConfig:
         technique=technique_map.get(request_data.get('technique', 'gaussian_blur'), 
                                    AnonymizationTechnique.GAUSSIAN_BLUR),
         intensity=request_data.get('intensity', 'medium'),
-        frame_skip=request_data.get('frame_skip', 2),
+        frame_skip=request_data.get('frame_skip', 1),  # Changed to 1 for better video quality
         query=request_data.get('query'),
         require_attributes=request_data.get('mode') == 'query_based'
     )
@@ -132,18 +108,8 @@ def save_upload_file(upload_file: UploadFile) -> Path:
 
 @app.get("/")
 async def root():
-    return {
-        "service": "AnonVision API",
-        "version": "2.0.0",
-        "endpoints": {
-            "image": "/api/process/image",
-            "images_batch": "/api/process/images",
-            "video": "/api/process/video",
-            "stream": "/api/stream/websocket",
-            "techniques": "/api/techniques",
-            "health": "/api/health"
-        }
-    }
+    """Serve the web interface"""
+    return FileResponse("static/index.html")
 
 
 @app.get("/api/health")
@@ -194,21 +160,14 @@ async def process_image(
     intensity: str = Form("medium"),
     query: Optional[str] = Form(None)
 ):
-    """
-    Process a single image
-    
-    Returns: Direct image file download
-    """
+    """Process a single image - Returns downloadable file"""
     try:
-        # Save uploaded file
         input_path = save_upload_file(file)
-        
-        # Read image
         frame = cv2.imread(str(input_path))
+        
         if frame is None:
             raise HTTPException(status_code=400, detail="Invalid image file")
         
-        # Create config
         config = parse_config({
             'mode': mode,
             'technique': technique,
@@ -216,19 +175,15 @@ async def process_image(
             'query': query
         })
         
-        # Process
         processor = AnonVisionProcessor(config)
         processed_frame, metadata = processor.process_frame(frame, force_process=True)
         
-        # Save output
         output_id = str(uuid.uuid4())
         output_path = OUTPUT_DIR / f"{output_id}.jpg"
         cv2.imwrite(str(output_path), processed_frame)
         
-        # Cleanup input
         input_path.unlink()
         
-        # Return file
         return FileResponse(
             str(output_path),
             media_type="image/jpeg",
@@ -250,15 +205,18 @@ async def process_images(
     mode: str = Form("face_only"),
     technique: str = Form("gaussian_blur"),
     intensity: str = Form("medium"),
-    query: Optional[str] = Form(None)
+    query: Optional[str] = Form(None),
+    return_zip: bool = Form(False)
 ):
     """
     Process multiple images in batch
     
-    Returns: JSON with links to processed images
+    If return_zip=True: Returns a ZIP file with all processed images
+    If return_zip=False: Returns JSON with individual download links
     """
     try:
         results = []
+        output_files = []
         
         config = parse_config({
             'mode': mode,
@@ -270,7 +228,6 @@ async def process_images(
         processor = AnonVisionProcessor(config)
         
         for file in files:
-            # Save and read
             input_path = save_upload_file(file)
             frame = cv2.imread(str(input_path))
             
@@ -283,25 +240,46 @@ async def process_images(
                 input_path.unlink()
                 continue
             
-            # Process
             processed_frame, metadata = processor.process_frame(frame, force_process=True)
             
-            # Save output
             output_id = str(uuid.uuid4())
-            output_path = OUTPUT_DIR / f"{output_id}.jpg"
+            output_filename = f"{output_id}_{file.filename}"
+            output_path = OUTPUT_DIR / output_filename
             cv2.imwrite(str(output_path), processed_frame)
+            
+            output_files.append((output_path, output_filename))
             
             results.append({
                 "filename": file.filename,
                 "status": "success",
-                "output_url": f"/outputs/{output_id}.jpg",
+                "download_url": f"/outputs/{output_filename}",
                 "metadata": metadata
             })
             
-            # Cleanup
             input_path.unlink()
         
-        return JSONResponse(content={"results": results})
+        # Return ZIP file if requested
+        if return_zip:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for output_path, output_filename in output_files:
+                    zip_file.write(output_path, arcname=f"anonymized_{output_filename}")
+            
+            zip_buffer.seek(0)
+            return StreamingResponse(
+                zip_buffer,
+                media_type="application/zip",
+                headers={"Content-Disposition": f"attachment; filename=anonymized_images.zip"}
+            )
+        
+        # Return JSON with individual links
+        return JSONResponse(content={
+            "status": "success",
+            "total": len(files),
+            "processed": len([r for r in results if r['status'] == 'success']),
+            "failed": len([r for r in results if r['status'] == 'error']),
+            "results": results
+        })
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -313,19 +291,16 @@ async def process_video(
     mode: str = Form("face_only"),
     technique: str = Form("gaussian_blur"),
     intensity: str = Form("medium"),
-    frame_skip: int = Form(2),
+    frame_skip: int = Form(1),
     query: Optional[str] = Form(None)
 ):
     """
-    Process a video file
-    
-    Returns: JSON with link to processed video
+    Process a video file - FIXED VERSION
+    Now properly processes and saves anonymized video
     """
     try:
-        # Save uploaded video
         input_path = save_upload_file(file)
         
-        # Create config
         config = parse_config({
             'mode': mode,
             'technique': technique,
@@ -334,11 +309,9 @@ async def process_video(
             'frame_skip': frame_skip
         })
         
-        # Output path
         output_id = str(uuid.uuid4())
         output_path = OUTPUT_DIR / f"{output_id}.mp4"
         
-        # Process video
         processor = AnonVisionProcessor(config)
         
         cap = cv2.VideoCapture(str(input_path))
@@ -351,37 +324,54 @@ async def process_video(
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        # Setup writer
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Use H264 codec for better compatibility
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')  # Changed from mp4v to avc1
         out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
         
+        if not out.isOpened():
+            # Fallback to mp4v if avc1 fails
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+        
         frame_count = 0
+        processed_count = 0
+        
+        print(f"Processing video: {total_frames} frames @ {fps}fps")
         
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
             
-            # Process frame
-            processed_frame, _ = processor.process_frame(frame)
-            out.write(processed_frame)
+            # CRITICAL FIX: Always process frame with force_process=True
+            processed_frame, metadata = processor.process_frame(frame, force_process=True)
             
+            # Verify frame was actually processed
+            if metadata.get('anonymized', 0) > 0:
+                processed_count += 1
+            
+            out.write(processed_frame)
             frame_count += 1
+            
+            # Progress logging
+            if frame_count % 30 == 0:
+                progress = (frame_count / total_frames) * 100
+                print(f"Progress: {progress:.1f}% - Anonymized: {processed_count} regions")
         
         cap.release()
         out.release()
         
-        # Cleanup input
         input_path.unlink()
         
-        # Get stats
         stats = processor.get_stats()
         
         return JSONResponse(content={
             "status": "success",
-            "output_url": f"/outputs/{output_id}.mp4",
+            "download_url": f"/outputs/{output_id}.mp4",
+            "filename": f"anonymized_{file.filename}",
             "metadata": {
                 "total_frames": frame_count,
+                "processed_frames": processed_count,
                 "fps": fps,
                 "resolution": f"{width}x{height}",
                 **stats
@@ -394,42 +384,35 @@ async def process_video(
 
 # ===== WebSocket for Real-Time Streaming =====
 
-active_connections: List[WebSocket] = []
+active_connections: dict = {}
 
 
 @app.websocket("/api/stream/websocket")
 async def websocket_stream(websocket: WebSocket):
     """
     Real-time video streaming with anonymization
-    
-    Protocol:
-    1. Client connects
-    2. Client sends config: {"mode": "face_only", "technique": "blur", ...}
-    3. Client sends frames as base64 encoded JPEG
-    4. Server responds with processed frame as base64 encoded JPEG
     """
     await websocket.accept()
-    active_connections.append(websocket)
+    client_id = str(uuid.uuid4())
+    active_connections[client_id] = websocket
     
     processor = None
     
     try:
         while True:
-            # Receive data from client
             data = await websocket.receive_text()
             message = json.loads(data)
             
-            # Handle config message
             if message.get('type') == 'config':
                 config = parse_config(message.get('config', {}))
                 processor = AnonVisionProcessor(config)
                 await websocket.send_json({
                     'type': 'config_ack',
-                    'status': 'ready'
+                    'status': 'ready',
+                    'client_id': client_id
                 })
                 continue
             
-            # Handle frame message
             if message.get('type') == 'frame':
                 if processor is None:
                     await websocket.send_json({
@@ -451,7 +434,7 @@ async def websocket_stream(websocket: WebSocket):
                     })
                     continue
                 
-                # Process frame
+                # CRITICAL: Always force process for real-time streaming
                 processed_frame, metadata = processor.process_frame(frame, force_process=True)
                 
                 # Encode response
@@ -459,7 +442,6 @@ async def websocket_stream(websocket: WebSocket):
                                         [cv2.IMWRITE_JPEG_QUALITY, 85])
                 frame_b64 = base64.b64encode(buffer).decode('utf-8')
                 
-                # Send response
                 await websocket.send_json({
                     'type': 'frame',
                     'frame': frame_b64,
@@ -467,8 +449,9 @@ async def websocket_stream(websocket: WebSocket):
                 })
     
     except WebSocketDisconnect:
-        active_connections.remove(websocket)
-        print("Client disconnected")
+        if client_id in active_connections:
+            del active_connections[client_id]
+        print(f"Client {client_id} disconnected")
     
     except Exception as e:
         print(f"WebSocket error: {e}")
@@ -478,30 +461,30 @@ async def websocket_stream(websocket: WebSocket):
         })
 
 
-@app.post("/api/stream/start")
-async def start_stream(config: StreamConfig):
-    """
-    Start processing an external stream (RTSP/HTTP) or webcam
-    
-    Returns: Stream ID for status checking
-    """
-    # This would require a background task manager
-    # For now, return a simple response
+# ===== Video Feed Simulator =====
+
+@app.get("/api/simulate/start")
+async def start_video_simulation():
+    """Start a simulated video feed for testing"""
     return JSONResponse(content={
-        "status": "not_implemented",
-        "message": "Use WebSocket endpoint for real-time streaming"
+        "status": "use_websocket",
+        "message": "Connect to WebSocket endpoint at /api/stream/websocket",
+        "instructions": "Use the web interface at / for easy testing"
     })
 
 
-# ===== Run Server =====
 if __name__ == "__main__":
     import uvicorn
     
+    # Create static directory if not exists
+    Path("static").mkdir(exist_ok=True)
+    
     print("=" * 60)
-    print("  AnonVision API Server")
+    print("  AnonVision API Server - FIXED VERSION")
     print("=" * 60)
     print(f"  Upload directory: {UPLOAD_DIR.absolute()}")
     print(f"  Output directory: {OUTPUT_DIR.absolute()}")
+    print("  Web Interface: http://localhost:8000")
     print("=" * 60)
     
     uvicorn.run(

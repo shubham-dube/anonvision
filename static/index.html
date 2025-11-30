@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnonVision - Real-Time Anonymization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .status-badge {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .processing { border: 2px solid #10b981; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-5xl font-bold mb-2 bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                AnonVision
+            </h1>
+            <p class="text-gray-400">Real-Time Context-Aware Video Anonymization</p>
+        </div>
+
+        <!-- Mode Selection -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">Select Processing Mode</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <button onclick="selectMode('image')" class="mode-btn bg-blue-600 hover:bg-blue-700 p-4 rounded-lg transition">
+                    <div class="text-3xl mb-2">🖼️</div>
+                    <div class="font-semibold">Single Image</div>
+                </button>
+                <button onclick="selectMode('images')" class="mode-btn bg-green-600 hover:bg-green-700 p-4 rounded-lg transition">
+                    <div class="text-3xl mb-2">📚</div>
+                    <div class="font-semibold">Batch Images</div>
+                </button>
+                <button onclick="selectMode('video')" class="mode-btn bg-purple-600 hover:bg-purple-700 p-4 rounded-lg transition">
+                    <div class="text-3xl mb-2">🎬</div>
+                    <div class="font-semibold">Video File</div>
+                </button>
+                <button onclick="selectMode('webcam')" class="mode-btn bg-red-600 hover:bg-red-700 p-4 rounded-lg transition">
+                    <div class="text-3xl mb-2">📹</div>
+                    <div class="font-semibold">Live Webcam</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">Configuration</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Detection Mode</label>
+                    <select id="detectionMode" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                        <option value="face_only">Face Only</option>
+                        <option value="body_only">Body Only</option>
+                        <option value="face_and_body">Face & Body</option>
+                        <option value="query_based">Query Based</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Technique</label>
+                    <select id="technique" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                        <option value="gaussian_blur">Gaussian Blur</option>
+                        <option value="pixelate">Pixelate</option>
+                        <option value="mosaic">Mosaic</option>
+                        <option value="black_box">Black Box</option>
+                        <option value="cartoon">Cartoon</option>
+                        <option value="oil_painting">Oil Painting</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Intensity</label>
+                    <select id="intensity" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Frame Skip (Video)</label>
+                    <input type="number" id="frameSkip" value="1" min="1" max="10" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                </div>
+            </div>
+            <div id="querySection" class="mt-4 hidden">
+                <label class="block text-sm font-medium mb-2">Natural Language Query</label>
+                <input type="text" id="query" placeholder="e.g., blur all children, anonymize people wearing red" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                <p class="text-sm text-gray-400 mt-1">Examples: "blur all children", "anonymize adults", "hide faces of people wearing red"</p>
+            </div>
+        </div>
+
+        <!-- Upload/Process Area -->
+        <div id="imageSection" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Upload Image</h2>
+            <input type="file" id="imageFile" accept="image/*" class="mb-4 w-full">
+            <button onclick="processImage()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition">
+                Process Image
+            </button>
+            <div id="imageResult" class="mt-6"></div>
+        </div>
+
+        <div id="imagesSection" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Upload Multiple Images</h2>
+            <input type="file" id="imagesFiles" accept="image/*" multiple class="mb-4 w-full">
+            <div class="flex gap-4">
+                <button onclick="processImages(false)" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition">
+                    Process (Individual Links)
+                </button>
+                <button onclick="processImages(true)" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition">
+                    Process & Download ZIP
+                </button>
+            </div>
+            <div id="imagesResult" class="mt-6"></div>
+        </div>
+
+        <div id="videoSection" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Upload Video</h2>
+            <input type="file" id="videoFile" accept="video/*" class="mb-4 w-full">
+            <button onclick="processVideo()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition">
+                Process Video
+            </button>
+            <div id="videoProgress" class="mt-4 hidden">
+                <div class="bg-gray-700 rounded-full h-4">
+                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-center mt-2 text-gray-400"></p>
+            </div>
+            <div id="videoResult" class="mt-6"></div>
+        </div>
+
+        <div id="webcamSection" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Live Webcam Stream</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-semibold mb-2">Original</h3>
+                    <div class="video-container">
+                        <video id="webcamVideo" autoplay playsinline class="w-full"></video>
+                        <canvas id="webcamCanvas" class="hidden"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold mb-2">Anonymized <span id="streamStatus" class="status-badge text-sm px-2 py-1 bg-red-600 rounded-full ml-2">Disconnected</span></h3>
+                    <div class="video-container processing">
+                        <img id="processedFrame" class="w-full" alt="Processed stream">
+                    </div>
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-sm">
+                        <div class="bg-gray-700 p-2 rounded">
+                            <div class="text-gray-400">FPS</div>
+                            <div id="fpsDisplay" class="text-xl font-bold">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-2 rounded">
+                            <div class="text-gray-400">Detections</div>
+                            <div id="detectionsDisplay" class="text-xl font-bold">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-2 rounded">
+                            <div class="text-gray-400">Anonymized</div>
+                            <div id="anonymizedDisplay" class="text-xl font-bold">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-4">
+                <button id="startWebcam" onclick="startWebcam()" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition">
+                    Start Stream
+                </button>
+                <button id="stopWebcam" onclick="stopWebcam()" class="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition hidden">
+                    Stop Stream
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = null;
+        let websocket = null;
+        let webcamStream = null;
+        let isStreaming = false;
+        let animationFrameId = null;
+
+        // Mode selection
+        function selectMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('ring-4', 'ring-white'));
+            event.target.closest('.mode-btn').classList.add('ring-4', 'ring-white');
+            
+            // Hide all sections
+            ['imageSection', 'imagesSection', 'videoSection', 'webcamSection'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(mode + 'Section').classList.remove('hidden');
+        }
+
+        // Show/hide query section based on detection mode
+        document.getElementById('detectionMode').addEventListener('change', (e) => {
+            const querySection = document.getElementById('querySection');
+            if (e.target.value === 'query_based') {
+                querySection.classList.remove('hidden');
+            } else {
+                querySection.classList.add('hidden');
+            }
+        });
+
+        // Get current configuration
+        function getConfig() {
+            return {
+                mode: document.getElementById('detectionMode').value,
+                technique: document.getElementById('technique').value,
+                intensity: document.getElementById('intensity').value,
+                frame_skip: parseInt(document.getElementById('frameSkip').value),
+                query: document.getElementById('query').value || null
+            };
+        }
+
+        // Process single image
+        async function processImage() {
+            const file = document.getElementById('imageFile').files[0];
+            if (!file) {
+                alert('Please select an image');
+                return;
+            }
+
+            const config = getConfig();
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('mode', config.mode);
+            formData.append('technique', config.technique);
+            formData.append('intensity', config.intensity);
+            if (config.query) formData.append('query', config.query);
+
+            const result = document.getElementById('imageResult');
+            result.innerHTML = '<p class="text-gray-400">Processing...</p>';
+
+            try {
+                const response = await fetch('/api/process/image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const metadata = {
+                        time: response.headers.get('X-Processing-Time'),
+                        detections: response.headers.get('X-Detections'),
+                        anonymized: response.headers.get('X-Anonymized')
+                    };
+                    
+                    result.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="font-semibold mb-2">Original</h3>
+                                <img src="${URL.createObjectURL(file)}" class="rounded-lg w-full">
+                            </div>
+                            <div>
+                                <h3 class="font-semibold mb-2">Anonymized</h3>
+                                <img src="${url}" class="rounded-lg w-full">
+                                <div class="mt-4 space-y-2 text-sm">
+                                    <p>⏱️ Processing Time: ${metadata.time}ms</p>
+                                    <p>🔍 Detections: ${metadata.detections}</p>
+                                    <p>✅ Anonymized: ${metadata.anonymized}</p>
+                                </div>
+                                <a href="${url}" download="anonymized_${file.name}" class="mt-4 inline-block bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded transition">
+                                    Download Image
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `<p class="text-red-500">Error: ${await response.text()}</p>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Process multiple images
+        async function processImages(returnZip) {
+            const files = document.getElementById('imagesFiles').files;
+            if (files.length === 0) {
+                alert('Please select images');
+                return;
+            }
+
+            const config = getConfig();
+            const formData = new FormData();
+            
+            for (let file of files) {
+                formData.append('files', file);
+            }
+            formData.append('mode', config.mode);
+            formData.append('technique', config.technique);
+            formData.append('intensity', config.intensity);
+            formData.append('return_zip', returnZip);
+            if (config.query) formData.append('query', config.query);
+
+            const result = document.getElementById('imagesResult');
+            result.innerHTML = `<p class="text-gray-400">Processing ${files.length} images...</p>`;
+
+            try {
+                const response = await fetch('/api/process/images', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (returnZip) {
+                    // Download ZIP
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'anonymized_images.zip';
+                    a.click();
+                    result.innerHTML = '<p class="text-green-500">✅ ZIP file downloaded!</p>';
+                } else {
+                    // Show individual links
+                    const data = await response.json();
+                    let html = `<div class="space-y-2">
+                        <p class="text-green-500">✅ Processed ${data.processed}/${data.total} images</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    `;
+                    
+                    for (let item of data.results) {
+                        if (item.status === 'success') {
+                            html += `
+                                <div class="bg-gray-700 p-4 rounded-lg">
+                                    <img src="${item.download_url}" class="w-full rounded mb-2">
+                                    <p class="text-sm truncate mb-2">${item.filename}</p>
+                                    <a href="${item.download_url}" download class="text-sm bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded inline-block">
+                                        Download
+                                    </a>
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    html += '</div></div>';
+                    result.innerHTML = html;
+                }
+            } catch (error) {
+                result.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Process video
+        async function processVideo() {
+            const file = document.getElementById('videoFile').files[0];
+            if (!file) {
+                alert('Please select a video');
+                return;
+            }
+
+            const config = getConfig();
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('mode', config.mode);
+            formData.append('technique', config.technique);
+            formData.append('intensity', config.intensity);
+            formData.append('frame_skip', config.frame_skip);
+            if (config.query) formData.append('query', config.query);
+
+            const progress = document.getElementById('videoProgress');
+            const result = document.getElementById('videoResult');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progress.classList.remove('hidden');
+            result.innerHTML = '';
+            progressText.textContent = 'Uploading and processing...';
+            progressBar.style.width = '50%';
+
+            try {
+                const response = await fetch('/api/process/video', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                progressBar.style.width = '100%';
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    progressText.textContent = 'Processing complete!';
+                    
+                    result.innerHTML = `
+                        <div class="bg-gray-700 p-6 rounded-lg">
+                            <h3 class="font-semibold mb-4 text-xl">✅ Video Processed Successfully!</h3>
+                            <video controls class="w-full rounded-lg mb-4">
+                                <source src="${data.download_url}" type="video/mp4">
+                            </video>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+                                <div class="bg-gray-800 p-3 rounded">
+                                    <div class="text-gray-400">Frames</div>
+                                    <div class="text-xl font-bold">${data.metadata.total_frames}</div>
+                                </div>
+                                <div class="bg-gray-800 p-3 rounded">
+                                    <div class="text-gray-400">FPS</div>
+                                    <div class="text-xl font-bold">${data.metadata.fps}</div>
+                                </div>
+                                <div class="bg-gray-800 p-3 rounded">
+                                    <div class="text-gray-400">Resolution</div>
+                                    <div class="text-xl font-bold">${data.metadata.resolution}</div>
+                                </div>
+                                <div class="bg-gray-800 p-3 rounded">
+                                    <div class="text-gray-400">Avg FPS</div>
+                                    <div class="text-xl font-bold">${data.metadata.avg_fps?.toFixed(1)}</div>
+                                </div>
+                            </div>
+                            <a href="${data.download_url}" download="${data.filename}" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg inline-block font-semibold transition">
+                                Download Anonymized Video
+                            </a>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => progress.classList.add('hidden'), 3000);
+                } else {
+                    const error = await response.json();
+                    result.innerHTML = `<p class="text-red-500">Error: ${error.detail}</p>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Webcam streaming
+        async function startWebcam() {
+            try {
+                // Get webcam access
+                webcamStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                
+                const video = document.getElementById('webcamVideo');
+                video.srcObject = webcamStream;
+                
+                // Connect WebSocket
+                websocket = new WebSocket('ws://localhost:8000/api/stream/websocket');
+                
+                websocket.onopen = async () => {
+                    document.getElementById('streamStatus').textContent = 'Connected';
+                    document.getElementById('streamStatus').classList.remove('bg-red-600');
+                    document.getElementById('streamStatus').classList.add('bg-green-600');
+                    
+                    // Send config
+                    const config = getConfig();
+                    websocket.send(JSON.stringify({
+                        type: 'config',
+                        config: config
+                    }));
+                };
+                
+                websocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'config_ack') {
+                        isStreaming = true;
+                        document.getElementById('startWebcam').classList.add('hidden');
+                        document.getElementById('stopWebcam').classList.remove('hidden');
+                        sendFrame();
+                    } else if (data.type === 'frame') {
+                        const img = document.getElementById('processedFrame');
+                        img.src = 'data:image/jpeg;base64,' + data.frame;
+                        
+                        // Update stats
+                        const meta = data.metadata;
+                        document.getElementById('fpsDisplay').textContent = meta.fps?.toFixed(1) || '0';
+                        document.getElementById('detectionsDisplay').textContent = meta.detections || '0';
+                        document.getElementById('anonymizedDisplay').textContent = meta.anonymized || '0';
+                        
+                        if (isStreaming) {
+                            setTimeout(() => sendFrame(), 33); // ~30 FPS
+                        }
+                    } else if (data.type === 'error') {
+                        console.error('Stream error:', data.message);
+                    }
+                };
+                
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    stopWebcam();
+                };
+                
+            } catch (error) {
+                alert('Error accessing webcam: ' + error.message);
+            }
+        }
+
+        function sendFrame() {
+            if (!isStreaming || !websocket || websocket.readyState !== WebSocket.OPEN) {
+                return;
+            }
+            
+            const video = document.getElementById('webcamVideo');
+            const canvas = document.getElementById('webcamCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    websocket.send(JSON.stringify({
+                        type: 'frame',
+                        frame: base64
+                    }));
+                };
+                reader.readAsDataURL(blob);
+            }, 'image/jpeg', 0.85);
+        }
+
+        function stopWebcam() {
+            isStreaming = false;
+            
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+            
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            
+            document.getElementById('streamStatus').textContent = 'Disconnected';
+            document.getElementById('streamStatus').classList.remove('bg-green-600');
+            document.getElementById('streamStatus').classList.add('bg-red-600');
+            document.getElementById('startWebcam').classList.remove('hidden');
+            document.getElementById('stopWebcam').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

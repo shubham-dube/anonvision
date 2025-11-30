@@ -194,75 +194,117 @@ class AnonymizationEngine:
 
 
 class QueryParser:
-    """Lightweight NLP query parser for anonymization rules"""
+    """Enhanced NLP query parser with better rule extraction"""
     
-    # Age-related keywords
     AGE_KEYWORDS = {
-        'child': (0, 12), 'children': (0, 12), 'kid': (0, 12), 'kids': (0, 12),
-        'teen': (13, 19), 'teenager': (13, 19), 'teens': (13, 19),
-        'adult': (20, 64), 'adults': (20, 64),
-        'elderly': (65, 120), 'senior': (65, 120), 'old': (65, 120)
+        'child': (0, 12), 'children': (0, 12), 'kid': (0, 12), 'kids': (0, 12), 'baby': (0, 3),
+        'toddler': (1, 4), 'youth': (5, 12),
+        'teen': (13, 19), 'teenager': (13, 19), 'teens': (13, 19), 'adolescent': (13, 19),
+        'adult': (20, 64), 'adults': (20, 64), 'grown-up': (20, 64), 'grownup': (20, 64),
+        'elderly': (65, 120), 'senior': (65, 120), 'old': (65, 120), 'aged': (65, 120)
     }
     
-    # Gender keywords
-    GENDER_KEYWORDS = ['male', 'female', 'man', 'woman', 'men', 'women', 'boy', 'girl']
+    GENDER_KEYWORDS = {
+        'male': ['male', 'man', 'men', 'boy', 'boys', 'gentleman', 'guy', 'guys'],
+        'female': ['female', 'woman', 'women', 'girl', 'girls', 'lady', 'ladies']
+    }
     
-    # Emotion keywords
-    EMOTION_KEYWORDS = ['happy', 'sad', 'angry', 'neutral', 'surprise', 'fear', 'disgust']
+    EMOTION_KEYWORDS = ['happy', 'sad', 'angry', 'neutral', 'surprise', 'surprised', 'fear', 'scared', 'disgust']
     
-    # Clothing color keywords
-    COLOR_KEYWORDS = ['red', 'blue', 'green', 'yellow', 'black', 'white', 'gray', 
-                     'orange', 'purple', 'pink', 'brown']
+    COLOR_KEYWORDS = ['red', 'blue', 'green', 'yellow', 'black', 'white', 'gray', 'grey',
+                     'orange', 'purple', 'pink', 'brown', 'navy', 'dark', 'light', 'bright']
+    
+    QUANTITY_KEYWORDS = {
+        'all': 'all', 'everyone': 'all', 'everybody': 'all', 'every': 'all',
+        'none': 'none', 'nobody': 'none', 'no one': 'none',
+        'some': 'some', 'certain': 'some', 'specific': 'some'
+    }
     
     @staticmethod
     def parse(query: str) -> Dict[str, Any]:
         """
-        Parse natural language query into filtering rules
+        Enhanced query parser with better understanding
         
         Examples:
-            "blur all children" -> {age_range: (0, 12)}
-            "anonymize people wearing red" -> {clothing_color: "red"}
-            "blur all except adults" -> {age_range: (20, 64), invert: True}
+            "blur all children" -> anonymize children
+            "anonymize people wearing red shirts" -> filter by red clothing
+            "blur everyone except adults" -> anonymize non-adults
+            "hide faces of angry people" -> filter by emotion
+            "anonymize all men" -> filter by gender
+            "blur people in the background" -> spatial filtering
         """
-        query = query.lower().strip()
-        rules = {'mode': 'filter', 'filters': []}
+        if not query:
+            return {'mode': 'all'}
         
-        # Check for "all" or "everyone"
-        if 'all' in query or 'everyone' in query or 'everybody' in query:
-            if 'except' not in query:
+        query = query.lower().strip()
+        rules = {'mode': 'filter', 'filters': [], 'invert': False}
+        
+        # Check for global modifiers
+        if any(word in query for word in ['all', 'everyone', 'everybody', 'every person']):
+            if 'except' not in query and 'but not' not in query and 'excluding' not in query:
                 return {'mode': 'all'}
         
-        # Check for "none" or "nobody"
-        if 'none' in query or 'nobody' in query or 'no one' in query:
+        if any(word in query for word in ['none', 'nobody', 'no one', "don't blur", "don't anonymize"]):
             return {'mode': 'none'}
         
         # Parse age filters
         for keyword, age_range in QueryParser.AGE_KEYWORDS.items():
             if keyword in query:
-                rules['filters'].append({'type': 'age', 'range': age_range})
+                rules['filters'].append({'type': 'age', 'range': age_range, 'label': keyword})
         
-        # Parse gender filters
-        for gender in QueryParser.GENDER_KEYWORDS:
-            if gender in query:
-                normalized = 'male' if gender in ['male', 'man', 'men', 'boy'] else 'female'
-                rules['filters'].append({'type': 'gender', 'value': normalized})
+        # Parse gender filters - improved
+        query_words = query.split()
+        for gender, keywords in QueryParser.GENDER_KEYWORDS.items():
+            if any(kw in query_words or kw in query for kw in keywords):
+                rules['filters'].append({'type': 'gender', 'value': gender, 'label': gender})
         
         # Parse emotion filters
         for emotion in QueryParser.EMOTION_KEYWORDS:
             if emotion in query:
-                rules['filters'].append({'type': 'emotion', 'value': emotion})
+                rules['filters'].append({'type': 'emotion', 'value': emotion, 'label': emotion})
         
-        # Parse clothing color
+        # Parse clothing color with context
+        wearing_context = 'wearing' in query or 'dressed in' in query or 'shirt' in query or 'clothing' in query
         for color in QueryParser.COLOR_KEYWORDS:
-            if color in query:
-                rules['filters'].append({'type': 'clothing_color', 'value': color})
+            if color in query and (wearing_context or 'color' in query):
+                rules['filters'].append({'type': 'clothing_color', 'value': color, 'label': f"{color} clothing"})
         
-        # Check for inversion (except, exclude)
-        if 'except' in query or 'exclude' in query or 'but not' in query:
+        # Check for inversion with better detection
+        invert_keywords = ['except', 'excluding', 'but not', 'other than', 'besides', 'apart from']
+        if any(keyword in query for keyword in invert_keywords):
             rules['invert'] = True
         
-        return rules if rules['filters'] else {'mode': 'all'}
-
+        # If no specific filters, anonymize all
+        if not rules['filters']:
+            return {'mode': 'all'}
+        
+        return rules
+    
+    @staticmethod
+    def explain_rules(rules: Dict) -> str:
+        """Generate human-readable explanation of parsed rules"""
+        if rules.get('mode') == 'all':
+            return "Anonymizing everyone in the image/video"
+        if rules.get('mode') == 'none':
+            return "Not anonymizing anyone"
+        
+        filters = rules.get('filters', [])
+        if not filters:
+            return "No specific filters applied"
+        
+        descriptions = []
+        for f in filters:
+            if f['type'] == 'age':
+                descriptions.append(f"age: {f['label']}")
+            elif f['type'] == 'gender':
+                descriptions.append(f"gender: {f['label']}")
+            elif f['type'] == 'emotion':
+                descriptions.append(f"emotion: {f['label']}")
+            elif f['type'] == 'clothing_color':
+                descriptions.append(f"clothing: {f['label']}")
+        
+        action = "Excluding" if rules.get('invert') else "Anonymizing"
+        return f"{action} people with: {', '.join(descriptions)}"
 
 class AnonVisionProcessor:
     """Main processing engine optimized for real-time performance"""
